@@ -1,11 +1,11 @@
 ﻿using System;
 using UnityEngine;
 
-public interface IAuthorizationUIView
+public interface IAuthorizationView
 {
     event Action OkClicked;
 
-    public string Login { get; }
+    public string UserName { get; }
     public string Password { get; }
 
     public void Enable();

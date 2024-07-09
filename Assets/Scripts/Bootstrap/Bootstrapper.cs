@@ -1,34 +1,33 @@
 using Cysharp.Threading.Tasks;
-using System;
 using System.Threading;
 using UnityEngine;
 using Zenject;
 
 public class Bootstrapper : MonoBehaviour
 {
+    // DI
     private ISceneLoader SceneLoader;
     private IAuthorizationService AuthorizationService;
-    private AuthorizationUIPresenter AuthorizationUI;
+    private ViewsFactory ViewsFactory;
+
+    // Created
+    private AuthorizationPresenter AuthorizationPresenter;
     private LoadingCurtainView LoadingCurtainView;
 
     [Inject]
     public void Initialize(
         IAuthorizationService authorizationService,
-        AuthorizationUIPresenter authorizationUI,
-        LoadingCurtainView loadingCurtainView,
-        ISceneLoader sceneLoader)
+        ISceneLoader sceneLoader,
+        ViewsFactory viewsFactory)
     {
         AuthorizationService = authorizationService;
-        AuthorizationUI = authorizationUI;
-        LoadingCurtainView = loadingCurtainView;
         SceneLoader = sceneLoader;
+        ViewsFactory = viewsFactory;
     }
 
     public void Start()
     {
         Log("Start");
-
-        DontDestroyOnLoad(this);
 
         _ = StartAsync();
     }
@@ -36,6 +35,8 @@ public class Bootstrapper : MonoBehaviour
     private async UniTask StartAsync()
     {
         Log("StartAsync");
+
+        await LoadViews();
 
         ShowAuthorizationUI();
 
@@ -48,19 +49,34 @@ public class Bootstrapper : MonoBehaviour
         await LoadFarmScene();
     }
 
+    private async UniTask LoadViews()
+    {
+        LoadingCurtainView = await ViewsFactory.LoadView<LoadingCurtainView>(Views.LoadingCurtainView);
+
+        var authView = await ViewsFactory.LoadView<AuthorizationView>(Views.AuthorizationView);
+
+        AuthorizationPresenter = new AuthorizationPresenter(authView);
+    }
+
     private void ShowLoadingCurtain()
     {
+        Log("ShowLoadingCurtain");
+
         LoadingCurtainView.Enable();
     }
 
     private void HideAuthorizationUI()
     {
-        AuthorizationUI.Disable();
+        Log("HideAuthorizationUI");
+
+        AuthorizationPresenter.Disable();
     }
 
     private void ShowAuthorizationUI()
     {
-        AuthorizationUI.Enable();
+        Log("ShowAuthorizationUI");
+
+        AuthorizationPresenter.Enable();
     }
 
     private async UniTask Authorize()
@@ -68,40 +84,42 @@ public class Bootstrapper : MonoBehaviour
         const string EmptyNameErrorMessage = "Empty username";
         const string EmptyPasswordErrorMessage = "Empty password";
 
+        Log("Authorize");
+
         while (true)
         {
             await WaitOkButtonClicked();
 
-            var userName = AuthorizationUI.UserName;
-            var password = AuthorizationUI.Password;
+            var userName = AuthorizationPresenter.UserName;
+            var password = AuthorizationPresenter.Password;
 
             if (string.IsNullOrEmpty(userName))
             {
-                AuthorizationUI.SetStatus(AuthorizationUIPresenter.Status.Fail);
-                AuthorizationUI.SetErrorString(EmptyNameErrorMessage);
+                AuthorizationPresenter.SetStatus(AuthorizationPresenter.Status.Fail);
+                AuthorizationPresenter.SetErrorString(EmptyNameErrorMessage);
                 continue;
             }
 
             if (string.IsNullOrEmpty(password))
             {
-                AuthorizationUI.SetStatus(AuthorizationUIPresenter.Status.Fail);
-                AuthorizationUI.SetErrorString(EmptyPasswordErrorMessage);
+                AuthorizationPresenter.SetStatus(AuthorizationPresenter.Status.Fail);
+                AuthorizationPresenter.SetErrorString(EmptyPasswordErrorMessage);
                 continue;
             }
 
-            AuthorizationUI.SetStatus(AuthorizationUIPresenter.Status.Waiting);
+            AuthorizationPresenter.SetStatus(AuthorizationPresenter.Status.Waiting);
 
             var result = await AuthorizationService.LogIn(userName, password);
 
             if (result.Success)
             {
-                AuthorizationUI.SetStatus(AuthorizationUIPresenter.Status.Success);
+                AuthorizationPresenter.SetStatus(AuthorizationPresenter.Status.Success);
                 return;
             }
             else
             {
-                AuthorizationUI.SetStatus(AuthorizationUIPresenter.Status.Fail);
-                AuthorizationUI.SetErrorString(result.ErrorMessage);
+                AuthorizationPresenter.SetStatus(AuthorizationPresenter.Status.Fail);
+                AuthorizationPresenter.SetErrorString(result.ErrorMessage);
             }
         }
 
@@ -109,13 +127,13 @@ public class Bootstrapper : MonoBehaviour
         {
             var token = new CancellationTokenSource();
 
-            AuthorizationUI.OkClicked += HandleOkClicked;
+            AuthorizationPresenter.OkClicked += HandleOkClicked;
 
             await UniTask.WaitUntilCanceled(token.Token);
 
             void HandleOkClicked()
             {
-                AuthorizationUI.OkClicked -= HandleOkClicked;
+                AuthorizationPresenter.OkClicked -= HandleOkClicked;
                 token.Cancel();
             }
         }
@@ -124,6 +142,8 @@ public class Bootstrapper : MonoBehaviour
 
     private async UniTask LoadFarmScene()
     {
+        Log("LoadFarmScene");
+
         await SceneLoader.LoadFarm();
     }
 

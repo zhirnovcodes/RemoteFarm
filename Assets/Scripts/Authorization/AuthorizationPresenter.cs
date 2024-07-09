@@ -1,19 +1,19 @@
 using System;
 using UnityEngine;
 
-public class AuthorizationUIPresenter
+public class AuthorizationPresenter
 {
-    private readonly IAuthorizationUIView View;
+    private readonly IAuthorizationView View;
 
     public event Action OkClicked = () => { };
 
-    public AuthorizationUIPresenter(IAuthorizationUIView view)
+    public AuthorizationPresenter(IAuthorizationView view)
     {
         View = view;
     }
 
-    public string Password { get; }
-    public string UserName { get; }
+    public string Password => View.Password;
+    public string UserName => View.UserName;
 
     public void Enable()
     {
